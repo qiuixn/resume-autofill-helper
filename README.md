@@ -23,7 +23,7 @@
 1. 打开 Chrome，进入 `chrome://extensions/`
 2. 打开右上角“开发者模式”
 3. 点击“加载已解压的扩展程序”
-4. 选择目录 `E:\project\resume-autofill-helper`
+4. 选择目录 `E:\project\resume-autofill-helper`（这里换成你自己的目录）
 
 ## 使用
 
