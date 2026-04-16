@@ -1,6 +1,6 @@
 (function () {
   const Core = window.ResumeAutofillCore;
-  const CONTENT_SCRIPT_VERSION = "2026-04-16-04";
+  const CONTENT_SCRIPT_VERSION = "2026-04-16-05";
 
   const state = {
     profileStore: null

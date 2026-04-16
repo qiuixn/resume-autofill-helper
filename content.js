@@ -4,7 +4,7 @@
   }
 
   const Core = window.ResumeAutofillCore;
-  const CONTENT_VERSION = "2026-04-16-04";
+  const CONTENT_VERSION = "2026-04-16-05";
   const HOST_ID = "resume-autofill-sidebar-host";
 
   if (!Core) {
@@ -103,6 +103,222 @@
     }
 
     return text;
+  }
+
+  function getDateFieldSource(fieldMetaOrElement) {
+    const element = fieldMetaOrElement?.element || fieldMetaOrElement;
+    return compactText(
+      [
+        fieldMetaOrElement?.label,
+        fieldMetaOrElement?.placeholder,
+        fieldMetaOrElement?.name,
+        fieldMetaOrElement?.id,
+        fieldMetaOrElement?.sectionHint,
+        element?.getAttribute?.("aria-label"),
+        element?.getAttribute?.("placeholder"),
+        element?.getAttribute?.("name"),
+        element?.id,
+        element?.type,
+        element?.className
+      ].join(" ")
+    ).toLowerCase();
+  }
+
+  function isDateLikeField(fieldMetaOrElement) {
+    const element = fieldMetaOrElement?.element || fieldMetaOrElement;
+    const source = getDateFieldSource(fieldMetaOrElement);
+    return (
+      /(\u65e5\u671f|\u65f6\u95f4|\u751f\u65e5|\u51fa\u751f|\u5165\u5b66|\u6bd5\u4e1a|\u5f00\u59cb|\u7ed3\u675f|\u81f3\u4eca|date|time|birthday|month|year)/i.test(source) ||
+      /^(date|month|datetime-local|time)$/i.test(String(element?.type || ""))
+    );
+  }
+
+  function parseDateParts(value) {
+    const text = compactText(value)
+      .replace(/\u5e74/g, "-")
+      .replace(/\u6708/g, "-")
+      .replace(/\u65e5/g, "")
+      .replace(/\//g, "-")
+      .replace(/\./g, "-");
+
+    const full = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s.*)?$/);
+    if (full) {
+      return {
+        year: full[1],
+        month: full[2].padStart(2, "0"),
+        day: full[3].padStart(2, "0")
+      };
+    }
+
+    const month = text.match(/^(\d{4})-(\d{1,2})(?:\s.*)?$/);
+    if (month) {
+      return {
+        year: month[1],
+        month: month[2].padStart(2, "0"),
+        day: ""
+      };
+    }
+
+    const year = text.match(/^(\d{4})(?:\s.*)?$/);
+    if (year) {
+      return {
+        year: year[1],
+        month: "",
+        day: ""
+      };
+    }
+
+    return null;
+  }
+
+  function isMonthOnlyDateField(fieldMeta) {
+    const element = fieldMeta?.element || fieldMeta;
+    const source = getDateFieldSource(fieldMeta);
+    if (String(element?.type || "").toLowerCase() === "month") {
+      return true;
+    }
+    return /(\u5e74\u6708|\u6708\u4efd|\u5165\u5b66|\u6bd5\u4e1a|\u5f00\u59cb|\u7ed3\u675f|\u5de5\u4f5c\u65f6\u95f4|\u8d77\u6b62|month)/i.test(source);
+  }
+
+  function uniqueValues(values) {
+    return Array.from(new Set(values.filter(Boolean).map((item) => String(item))));
+  }
+
+  function buildDateVariants(value, fieldMeta) {
+    const text = compactText(value);
+    const parts = parseDateParts(text);
+    if (!parts) {
+      return [text];
+    }
+
+    const fullDate = parts.day ? parts.year + "-" + parts.month + "-" + parts.day : "";
+    const monthDate = parts.month ? parts.year + "-" + parts.month : "";
+    const slashDate = parts.day ? parts.year + "/" + parts.month + "/" + parts.day : "";
+    const chineseDate = parts.day ? parts.year + "\u5e74" + Number(parts.month) + "\u6708" + Number(parts.day) + "\u65e5" : "";
+    const chineseMonth = parts.month ? parts.year + "\u5e74" + Number(parts.month) + "\u6708" : "";
+
+    if (isMonthOnlyDateField(fieldMeta)) {
+      return uniqueValues([monthDate, fullDate, chineseMonth, slashDate, text]);
+    }
+
+    return uniqueValues([fullDate, monthDate, slashDate, chineseDate, chineseMonth, text]);
+  }
+
+  function buildSelectDateVariants(value, fieldMeta) {
+    const parts = parseDateParts(value);
+    if (!parts) {
+      return buildDateVariants(value, fieldMeta);
+    }
+
+    const source = getDateFieldSource(fieldMeta);
+    if (/(\u5e74|year)/i.test(source) && !/(\u6708|month|\u65e5|day)/i.test(source)) {
+      return uniqueValues([parts.year]);
+    }
+    if (/(\u6708|month)/i.test(source) && !/(\u5e74|year|\u65e5|day)/i.test(source)) {
+      return uniqueValues([parts.month, String(Number(parts.month)), parts.month + "\u6708", String(Number(parts.month)) + "\u6708"]);
+    }
+    if (/(\u65e5|day)/i.test(source) && !/(\u5e74|year|\u6708|month)/i.test(source)) {
+      return uniqueValues([parts.day, String(Number(parts.day)), parts.day + "\u65e5", String(Number(parts.day)) + "\u65e5"]);
+    }
+
+    return buildDateVariants(value, fieldMeta);
+  }
+
+  function normalizeDateValue(value, fieldMeta) {
+    return buildDateVariants(value, fieldMeta)[0] || compactText(value);
+  }
+
+  function setNativeElementValue(element, value) {
+    const prototype =
+      element.tagName === "TEXTAREA" ? window.HTMLTextAreaElement?.prototype : window.HTMLInputElement?.prototype;
+    const descriptor = prototype ? Object.getOwnPropertyDescriptor(prototype, "value") : null;
+    if (descriptor?.set) {
+      descriptor.set.call(element, value);
+    } else {
+      element.value = value;
+    }
+
+    if (element._valueTracker) {
+      element._valueTracker.setValue("");
+    }
+  }
+
+  function dispatchFillEvents(element, value) {
+    ["keydown", "keypress", "keyup", "input", "change", "blur"].forEach((eventName) => {
+      let event;
+      if (eventName === "input" && typeof InputEvent === "function") {
+        event = new InputEvent("input", { bubbles: true, inputType: "insertText", data: value });
+      } else {
+        event = new Event(eventName, { bubbles: true });
+      }
+      element.dispatchEvent(event);
+    });
+  }
+
+  function valuesMatchDate(actual, expected) {
+    const actualValue = normalizeDateValue(actual);
+    const expectedValue = normalizeDateValue(expected);
+    return Boolean(actualValue && expectedValue && (actualValue === expectedValue || actualValue.includes(expectedValue) || expectedValue.includes(actualValue)));
+  }
+
+  function forceFillInputLikeElement(fieldMeta, value) {
+    const element = fieldMeta?.element;
+    if (!element) {
+      return false;
+    }
+
+    if (element.tagName === "SELECT") {
+      return buildSelectDateVariants(value, fieldMeta).some((variant) => Core.fillElement(fieldMeta, variant));
+    }
+
+    if (fieldMeta.isContentEditable) {
+      return Core.fillElement(fieldMeta, value);
+    }
+
+    if (!/^(INPUT|TEXTAREA)$/i.test(element.tagName)) {
+      return false;
+    }
+
+    const wasReadOnly = Boolean(element.readOnly);
+    const hadReadOnlyAttribute = element.hasAttribute("readonly");
+    const previousValue = element.value;
+
+    try {
+      element.removeAttribute("readonly");
+      element.readOnly = false;
+      element.focus({ preventScroll: true });
+      if (typeof element.select === "function") {
+        element.select();
+      }
+      setNativeElementValue(element, "");
+      dispatchFillEvents(element, "");
+      setNativeElementValue(element, value);
+      dispatchFillEvents(element, value);
+    } finally {
+      if (hadReadOnlyAttribute) {
+        element.setAttribute("readonly", "");
+      }
+      element.readOnly = wasReadOnly;
+    }
+
+    return valuesMatchDate(element.value, value) || (previousValue !== element.value && Boolean(element.value));
+  }
+
+  function fillDateElement(fieldMeta, rawValue) {
+    const variants = fieldMeta?.element?.tagName === "SELECT" ? buildSelectDateVariants(rawValue, fieldMeta) : buildDateVariants(rawValue, fieldMeta);
+    for (const variant of variants) {
+      if (forceFillInputLikeElement(fieldMeta, variant)) {
+        return true;
+      }
+      if (Core.fillElement(fieldMeta, variant)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function fillFieldWithAdapters(fieldMeta, value) {
+    return isDateLikeField(fieldMeta) ? fillDateElement(fieldMeta, value) : Core.fillElement(fieldMeta, value);
   }
 
   function isVisibleField(element) {
@@ -498,8 +714,7 @@
       if (!match) {
         return;
       }
-      const value = isDateLikeField(field) ? normalizeDateValue(match.value) : match.value;
-      if (Core.fillElement(field, value)) {
+      if (fillFieldWithAdapters(field, match.value)) {
         filledCount += 1;
       }
     });
@@ -584,9 +799,7 @@
     event.stopPropagation();
 
     const fieldMeta = buildFieldMeta(element);
-    const value = isDateLikeField(fieldMeta) ? normalizeDateValue(state.manualEntry.value) : state.manualEntry.value;
-
-    if (Core.fillElement(fieldMeta, value)) {
+    if (fillFieldWithAdapters(fieldMeta, state.manualEntry.value)) {
       showToast("已填入: " + state.manualEntry.label);
       setStatus("已通过点选模式填入「" + state.manualEntry.label + "」。", "success");
     } else {
