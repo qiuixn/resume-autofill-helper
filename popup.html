@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>简历自动填写助手</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <section class="hero">
+        <div class="eyebrow">本地版</div>
+        <h1>简历自动填写助手</h1>
+        <p>选择简历后直接执行智能填写，扩展会自动识别页面字段、填写内容，并把识别结果同步展示出来。</p>
+      </section>
+
+      <section class="panel">
+        <label class="field-label" for="profileSelect">当前简历</label>
+        <select id="profileSelect"></select>
+
+        <div class="button-row single">
+          <button id="smartFillBtn" class="primary">智能填写当前页面</button>
+        </div>
+
+        <button id="openOptionsBtn" class="ghost">打开设置页</button>
+        <div id="status" class="status">先切到招聘网站或在线表单页面，再点击“智能填写当前页面”。</div>
+      </section>
+
+      <section class="panel">
+        <div class="stats">
+          <article>
+            <span class="stats-label">页面字段</span>
+            <strong id="totalFields">0</strong>
+          </article>
+          <article>
+            <span class="stats-label">已匹配字段</span>
+            <strong id="matchedFields">0</strong>
+          </article>
+        </div>
+
+        <div class="results-head">
+          <h2>识别结果</h2>
+          <span id="resultTip" class="tip">未执行</span>
+        </div>
+        <ul id="resultsList" class="results empty">
+          <li>这里会显示已识别字段以及对应使用的简历内容。</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

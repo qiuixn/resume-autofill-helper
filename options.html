@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>简历自动填写助手 - 设置</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">完全本地存储</span>
+          <h1>简历自动填写助手</h1>
+          <p>维护多份简历资料，支持结构化教育/工作/项目信息，导入导出 JSON，并在招聘网站或任意在线表单中一键自动填写。</p>
+        </div>
+        <div class="hero-actions">
+          <button id="newProfileBtn" class="primary" type="button">新建简历</button>
+          <button id="duplicateProfileBtn" type="button">复制当前简历</button>
+          <button id="deleteProfileBtn" type="button">删除当前简历</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="sidebar card">
+          <label class="field-label" for="profileSelect">简历列表</label>
+          <select id="profileSelect" size="8"></select>
+          <div class="sidebar-actions">
+            <button id="exportBtn" type="button">导出 JSON</button>
+            <button id="importBtn" type="button">导入 JSON</button>
+            <input id="importInput" type="file" accept=".json" hidden />
+          </div>
+          <p class="sidebar-tip">结构化字段和多条记录都会保存在本地浏览器存储中，不依赖账号体系和云端同步。</p>
+        </aside>
+
+        <section class="content card">
+          <form id="profileForm">
+            <div id="formSections" class="schema-sections"></div>
+
+            <div class="form-actions">
+              <button id="saveBtn" type="submit" class="primary">保存当前简历</button>
+              <button id="resetBtn" type="button">重置当前表单</button>
+              <span id="saveStatus" class="save-status">修改后记得保存。</span>
+            </div>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script src="core.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
